@@ -79,11 +79,8 @@ def split_data(graphs):
 
 
 def create_data_loaders(train_data, val_data, test_data, batch_size=32):
+    """创建dataloader"""
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
     return train_loader, val_loader, test_loader
-
-
-def save_data_loaders(filepath, loaders):
-    torch.save(loaders, filepath)

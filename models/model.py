@@ -122,9 +122,9 @@ class GCN_GRU(torch.nn.Module):
         return out
 
 
-class GCN_TCN(torch.nn.Module):
+class GC_TCN(torch.nn.Module):
     def __init__(self, num_node_features, gcn_hidden_dim, tcn_num_channels, num_classes, kernel_size=2, dropout=0.2):
-        super(GCN_TCN, self).__init__()
+        super(GC_TCN, self).__init__()
 
         # GCN Layers
         self.conv1 = GCNConv(num_node_features, gcn_hidden_dim)
