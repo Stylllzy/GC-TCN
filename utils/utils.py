@@ -22,6 +22,14 @@ def seed_torch(seed):
     torch.backends.cudnn.benchmark = False
 
 
+def set_device():
+    """设置设备"""
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device --> [{torch.cuda.get_device_name(device)}]")
+    print('#---------------------------------------------------------------------------------------------------#')
+    return device
+
+
 def dtw_to_similarity(dtw_distance, alpha=1):
     """将两个序列之间的 DTW 距离转换为相似度（0，1）之间"""
     return np.exp(-dtw_distance / alpha)

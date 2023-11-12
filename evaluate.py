@@ -64,6 +64,8 @@ def evaluate_model(model, dataloader, device, num_samples=100, prediction_interv
         评估模型
         针对点预测和预测区间进行评估
     """
+    print('#---------------------------------------------------------------------------------------------------#')
+    print('#--------------------------------------------开始评估模型--------------------------------------------#')
     predictions, stds, labels = mc_dropout_predict(model, dataloader, device, num_samples) \
         if prediction_interval else point_predict(model, dataloader, device)
 
@@ -72,7 +74,7 @@ def evaluate_model(model, dataloader, device, num_samples=100, prediction_interv
         lower_bound = predictions - z_score * stds
         upper_bound = predictions + z_score * stds
 
-        all_labels = np.array(labels).squeeze()     # 将（168，1） -> （168，）
+        all_labels = np.array(labels).squeeze()  # 将（168，1） -> （168，）
         mean_predictions = predictions.squeeze()
         lower_bound = lower_bound.squeeze()
         upper_bound = upper_bound.squeeze()
@@ -81,52 +83,52 @@ def evaluate_model(model, dataloader, device, num_samples=100, prediction_interv
         print(f"95% Prediction Interval Coverage: {coverage * 100:.2f}%")
 
         mae, rmse, mape, r2 = compute_metrics(all_labels, mean_predictions)
-        print(f"MAE: {mae:.4f}, RMSE: {rmse:.4f}, MAPE: {mape:.4f}, R2: {r2:.4f}")
+        print(f"评估指标 --> MAE -> {mae:.4f}\n----------RMSE -> {rmse:.4f}\n----------"
+              f"MAPE -> {mape:.4f}\n------------R2 -> {r2:.4f}")
         return all_labels, mean_predictions, lower_bound, upper_bound
     else:
-
         mae, rmse, mape, r2 = compute_metrics(labels, predictions)
-        print(f"MAE: {mae:.4f}, RMSE: {rmse:.4f}, MAPE: {mape:.4f}, R2: {r2:.4f}")
+        print(f"评估指标 --> MAE -> {mae:.4f}\n----------RMSE -> {rmse:.4f}\n----------"
+              f"MAPE -> {mape:.4f}\n------------R2 -> {r2:.4f}")
         return labels, predictions
 
 
-def visualize_predictions(all_labels, all_predictions, lower_bound=None, upper_bound=None, prediction_interval=False,
-                          save_path=None):
-    # 如果预测区间为False，仅绘制点预测图
-    if not prediction_interval:
-        plt.figure(figsize=(14, 7))
-        plt.plot(all_predictions, label="Pred", color='blue')
-        plt.plot(all_labels, label="True Value", color='red', linestyle='dashed')
-        plt.title("Predictions vs True Values")
-        plt.xlabel("sample")
-        plt.ylabel("value")
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
-    # 如果预测区间为True，绘制区间预测图及点预测图
-    else:
+def visualize_predictions(all_labels, all_predictions, save_path=None):
+    """绘制预测图"""
+    plt.figure(figsize=(14, 7))
+    plt.plot(all_predictions, label="Pred", color='blue')
+    plt.plot(all_labels, label="True Value", color='red', linestyle='dashed')
+    plt.title("Predictions vs True Values")
+    plt.xlabel("sample")
+    plt.ylabel("value")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    # plt.savefig(save_path, dpi=300)
+    plt.show()
 
-        # 定义窗口大小和预测数据的长度
-        window_size = 10
-        PREDICTION_LENGTH = 60
 
-        # 对真实值、预测值、上界和下界进行移动平均处理
-        smoothed_labels = moving_average(all_labels, window_size)
-        smoothed_predictions = moving_average(all_predictions, window_size)
-        smoothed_lower_bound = moving_average(lower_bound, window_size)
-        smoothed_upper_bound = moving_average(upper_bound, window_size)
+def visualize_predictions_interval(all_labels, all_predictions, lower_bound=None, upper_bound=None, save_path=None):
+    # 定义窗口大小和预测数据的长度
+    window_size = 10
+    PREDICTION_LENGTH = 60
 
-        # 绘制区间预测图
-        plt.figure(figsize=(12, 6))
-        plt.plot(smoothed_labels[-168:], color='#88E1F2', label='True Value')
-        plt.plot(range(len(smoothed_labels) - PREDICTION_LENGTH, len(smoothed_labels)),
-                 smoothed_predictions[-PREDICTION_LENGTH:], color='#FF7C7C', label='Predictions', linestyle='dashed')
-        plt.fill_between(range(len(smoothed_labels) - PREDICTION_LENGTH, len(smoothed_labels)),
-                         smoothed_lower_bound[-PREDICTION_LENGTH:], smoothed_upper_bound[-PREDICTION_LENGTH:],
-                         color='pink', alpha=0.5, label='Prediction Interval')
-        plt.xticks([])
-        plt.yticks([])
-        plt.legend()
-        plt.savefig(save_path)
-        plt.show()
+    # 对真实值、预测值、上界和下界进行移动平均处理
+    smoothed_labels = moving_average(all_labels, window_size)
+    smoothed_predictions = moving_average(all_predictions, window_size)
+    smoothed_lower_bound = moving_average(lower_bound, window_size)
+    smoothed_upper_bound = moving_average(upper_bound, window_size)
+
+    # 绘制区间预测图
+    plt.figure(figsize=(12, 6))
+    plt.plot(smoothed_labels[-168:], color='#88E1F2', label='True Value')
+    plt.plot(range(len(smoothed_labels) - PREDICTION_LENGTH, len(smoothed_labels)),
+             smoothed_predictions[-PREDICTION_LENGTH:], color='#FF7C7C', label='Predictions', linestyle='dashed')
+    plt.fill_between(range(len(smoothed_labels) - PREDICTION_LENGTH, len(smoothed_labels)),
+                     smoothed_lower_bound[-PREDICTION_LENGTH:], smoothed_upper_bound[-PREDICTION_LENGTH:],
+                     color='pink', alpha=0.5, label='Prediction Interval')
+    plt.xticks([])
+    plt.yticks([])
+    plt.legend()
+    # plt.savefig(save_path, dpi=300)
+    plt.show()

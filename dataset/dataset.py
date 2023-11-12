@@ -29,7 +29,7 @@ def normalize_features_and_labels(data, label):
     scaler_labels = StandardScaler()
 
     data_selected = data.values
-    labels = data.iloc[:, label].values
+    labels = data[label].values     # 选取标签
 
     data_normalized = scaler_data.fit_transform(data_selected)
     labels_normalized = scaler_labels.fit_transform(labels.reshape(-1, 1)).flatten()

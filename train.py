@@ -29,6 +29,10 @@ def run_training_loop(model, train_loader, val_loader, optimizer, criterion, dev
         训练循环
         保存验证损失最低的模型
     """
+    print(model)
+    print('#---------------------------------------------------------------------------------------------------#')
+    print('#--------------------------------------------开始训练模型--------------------------------------------#')
+
     best_val_loss = float('inf')
 
     for epoch in range(num_epochs):
