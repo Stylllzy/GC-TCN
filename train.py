@@ -24,7 +24,7 @@ def evaluate(model, dataloader, criterion, device):
     return avg_loss, np.concatenate(all_preds), np.concatenate(all_labels)  # 返回验证平均损失，所有预测值，所有标签值
 
 
-def run_training_loop(model, train_loader, val_loader, optimizer, criterion, device, num_epochs, model_weights_path):
+def run_training_loop(model, train_loader, val_loader, optimizer, scheduler, criterion, device, num_epochs, model_weights_path):
     """
         训练循环
         保存验证损失最低的模型
@@ -38,6 +38,7 @@ def run_training_loop(model, train_loader, val_loader, optimizer, criterion, dev
     for epoch in range(num_epochs):
         model.train()
         total_train_loss = 0
+        # model.reset_lstm_state()  # 重置 LSTM 状态
         for data in train_loader:
             data = data.to(device)
             optimizer.zero_grad()
@@ -51,9 +52,16 @@ def run_training_loop(model, train_loader, val_loader, optimizer, criterion, dev
         val_loss, _, _ = evaluate(model, val_loader, criterion, device)
         print(f"Epoch [{epoch + 1}/{num_epochs}] train_loss: {avg_train_loss:.4f}, val_loss: {val_loss:.4f}")
 
+        # 更新学习率
+        # scheduler.step()
+        # current_lr = optimizer.param_groups[0]['lr']    # 获取当前学习率
+        # print(f"-------------------------- Current Learning Rate: {current_lr:.4f}")
+
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), model_weights_path)
-            print(f"[INFO] 最佳模型已保存，val_loss: {best_val_loss:.4f}")
+            print(f"[INFO] Epoch [{epoch + 1}/{num_epochs}] "
+                  f"Train Loss: {avg_train_loss:.4f}, Val Loss: {val_loss:.4f}, "
+                  f"save with best val loss: {best_val_loss:.4f}")
 
     return model

@@ -8,7 +8,7 @@ import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from utils.utils import compute_metrics, moving_average
+from utils.util import compute_metrics, moving_average
 
 
 def mc_dropout_predict(model, dataloader, device, num_samples=100):
@@ -50,7 +50,7 @@ def point_predict(model, dataloader, device):
     all_labels = []
 
     with torch.no_grad():
-        for batch in tqdm(dataloader, desc="Processing batches"):
+        for batch in dataloader:
             batch = batch.to(device)
             out = model(batch).detach().cpu().numpy()
             all_predictions.extend(out)
@@ -59,15 +59,15 @@ def point_predict(model, dataloader, device):
     return np.array(all_predictions).squeeze(), None, np.array(all_labels).squeeze()
 
 
-def evaluate_model(model, dataloader, device, num_samples=100, prediction_interval=False):
+def evaluate_model(model, dataloader, device, num_samples=100, prediction_interval=False, scaler_labels=None):
     """
         评估模型
         针对点预测和预测区间进行评估
     """
     print('#---------------------------------------------------------------------------------------------------#')
     print('#--------------------------------------------开始评估模型--------------------------------------------#')
-    predictions, stds, labels = mc_dropout_predict(model, dataloader, device, num_samples) \
-        if prediction_interval else point_predict(model, dataloader, device)
+    predictions, stds, labels = mc_dropout_predict(model, dataloader, device, num_samples) if prediction_interval \
+        else point_predict(model, dataloader, device)
 
     z_score = 1.96
     if prediction_interval:
@@ -82,14 +82,25 @@ def evaluate_model(model, dataloader, device, num_samples=100, prediction_interv
         coverage = np.mean((labels >= lower_bound) & (labels <= upper_bound))
         print(f"95% Prediction Interval Coverage: {coverage * 100:.2f}%")
 
+        # 反标准化
+        if scaler_labels is not None:
+            all_labels = scaler_labels.inverse_transform(all_labels.reshape(-1, 1)).squeeze()
+            mean_predictions = scaler_labels.inverse_transform(mean_predictions.reshape(-1, 1)).squeeze()
+            lower_bound = scaler_labels.inverse_transform(lower_bound.reshape(-1, 1)).squeeze()
+            upper_bound = scaler_labels.inverse_transform(upper_bound.reshape(-1, 1)).squeeze()
+
         mae, rmse, mape, r2 = compute_metrics(all_labels, mean_predictions)
-        print(f"评估指标 --> MAE -> {mae:.4f}\n----------RMSE -> {rmse:.4f}\n----------"
-              f"MAPE -> {mape:.4f}\n------------R2 -> {r2:.4f}")
+        print(f"评估指标 --> MAE -> {mae:.4f}\n"
+              f"----------RMSE -> {rmse:.4f}\n"
+              f"----------MAPE -> {mape:.4f}\n"
+              f"------------R2 -> {r2:.4f}")
         return all_labels, mean_predictions, lower_bound, upper_bound
     else:
         mae, rmse, mape, r2 = compute_metrics(labels, predictions)
-        print(f"评估指标 --> MAE -> {mae:.4f}\n----------RMSE -> {rmse:.4f}\n----------"
-              f"MAPE -> {mape:.4f}\n------------R2 -> {r2:.4f}")
+        print(f"评估指标 --> MAE -> {mae:.4f}\n"
+              f"----------RMSE -> {rmse:.4f}\n"
+              f"----------MAPE -> {mape:.4f}\n"
+              f"------------R2 -> {r2:.4f}")
         return labels, predictions
 
 
@@ -99,8 +110,9 @@ def visualize_predictions(all_labels, all_predictions, save_path=None):
     plt.plot(all_predictions, label="Pred", color='blue')
     plt.plot(all_labels, label="True Value", color='red', linestyle='dashed')
     plt.title("Predictions vs True Values")
-    plt.xlabel("sample")
-    plt.ylabel("value")
+    plt.xlabel("sample", fontsize=18)
+    plt.ylabel("value", fontsize=18)
+    plt.rcParams.update({'font.size': 16})
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -108,10 +120,9 @@ def visualize_predictions(all_labels, all_predictions, save_path=None):
     plt.show()
 
 
-def visualize_predictions_interval(all_labels, all_predictions, lower_bound=None, upper_bound=None, save_path=None):
-    # 定义窗口大小和预测数据的长度
-    window_size = 10
-    PREDICTION_LENGTH = 60
+def visualize_predictions_interval(test_time, all_labels, all_predictions, lower_bound=None, upper_bound=None, save_path=None):
+    # 定义窗口大小
+    window_size = 12
 
     # 对真实值、预测值、上界和下界进行移动平均处理
     smoothed_labels = moving_average(all_labels, window_size)
@@ -119,16 +130,34 @@ def visualize_predictions_interval(all_labels, all_predictions, lower_bound=None
     smoothed_lower_bound = moving_average(lower_bound, window_size)
     smoothed_upper_bound = moving_average(upper_bound, window_size)
 
-    # 绘制区间预测图
+    test_times = test_time[:len(smoothed_labels)]
+
     plt.figure(figsize=(12, 6))
-    plt.plot(smoothed_labels[-168:], color='#88E1F2', label='True Value')
-    plt.plot(range(len(smoothed_labels) - PREDICTION_LENGTH, len(smoothed_labels)),
-             smoothed_predictions[-PREDICTION_LENGTH:], color='#FF7C7C', label='Predictions', linestyle='dashed')
-    plt.fill_between(range(len(smoothed_labels) - PREDICTION_LENGTH, len(smoothed_labels)),
-                     smoothed_lower_bound[-PREDICTION_LENGTH:], smoothed_upper_bound[-PREDICTION_LENGTH:],
-                     color='pink', alpha=0.5, label='Prediction Interval')
-    plt.xticks([])
-    plt.yticks([])
+
+    # Plot real values
+    plt.plot(test_times, smoothed_labels, color='#000000', lw=2, label='Real Value')
+
+    # Plot predicted values
+    plt.plot(test_times, smoothed_predictions, color='#CF0A0A', linestyle='dashed', lw=2, label='Predicted Value')
+
+    # Plot prediction interval
+    plt.fill_between(test_times, smoothed_lower_bound, smoothed_upper_bound, color='#BCDAFC', alpha=0.5,
+                     label='Prediction Interval')
+    # 为间隔边框添加虚线
+    plt.plot(test_times, smoothed_lower_bound, linestyle='dashed', linewidth=1.0, color='#0070C0')
+    plt.plot(test_times, smoothed_upper_bound, linestyle='dashed', linewidth=1.0, color='#0070C0')
+
+    # Set axis labels
+    plt.xlabel('Date', fontsize=18)
+    plt.ylabel('Carbon Price', fontsize=18)
+    plt.rcParams.update({'font.size': 16})
+    # 设置 x 轴和 y 轴刻度朝内
+    plt.tick_params(axis='both', direction='in')
+
+    # Add legend
     plt.legend()
-    # plt.savefig(save_path, dpi=300)
+
+    # Save the plot if a path is provided
+    if save_path:
+        plt.savefig(save_path, dpi=300)
     plt.show()

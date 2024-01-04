@@ -63,6 +63,19 @@ def custom_random_split(data_list, lengths):
             zip(itertools.accumulate(lengths), lengths)]
 
 
+def sequential_split(data_list, lengths):
+    """将列表按照时间顺序拆分为由长度指定的非重叠新列表。"""
+    if sum(lengths) != len(data_list):
+        raise ValueError("Sum of input lengths does not equal the length of the input list!")
+
+    # Sequential split
+    train = data_list[:lengths[0]]
+    val = data_list[lengths[0]:lengths[0] + lengths[1]]
+    test = data_list[lengths[0] + lengths[1]:]
+
+    return train, val, test
+
+
 def save_data_loaders(filepath, loaders):
     """保存dataloader"""
     torch.save(loaders, filepath)
@@ -83,9 +96,16 @@ def compute_metrics(labels, predictions):
     mae = mean_absolute_error(labels, predictions)  # 平均绝对误差
     r2 = r2_score(labels, predictions)  # R2
     mape = mean_absolute_percentage_error(labels, predictions)  # 平均绝对百分比误差
+
+    # 对称平均绝对百分比误差 (SMAPE)
+    smape = np.sum(
+        2 * np.abs(predictions - labels) / (np.abs(labels) + np.abs(predictions) + np.finfo(float).eps)) / len(labels)
+
     return mae, rmse, mape, r2
 
 
 def moving_average(data, window_size=5):
     """计算移动平均"""
     return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
+
+
