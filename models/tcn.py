@@ -65,7 +65,7 @@ class TemporalBlock(nn.Module):
 
 
 class TemporalConvNet(nn.Module):
-    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2):
+    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2, dilations=None):
         super(TemporalConvNet, self).__init__()
         """
             :param num_inputs: int,  输入通道数或者特征数
@@ -78,8 +78,13 @@ class TemporalConvNet(nn.Module):
         """
         layers = []
         num_levels = len(num_channels)
+
+        # 如果没有提供自定义扩张系数列表，就使用默认的2的幂次方
+        if dilations is None:
+            dilations = [2 ** i for i in range(num_levels)]
+
         for i in range(num_levels):
-            dilation_size = 2 ** i
+            dilation_size = dilations[i]
             in_channels = num_inputs if i == 0 else num_channels[i - 1]
             out_channels = num_channels[i]
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
@@ -91,3 +96,5 @@ class TemporalConvNet(nn.Module):
         return self.network(x)
 
 
+# tcn = TemporalConvNet(num_inputs=30, num_channels=[16], kernel_size=3, dropout=0.3, dilations=[2])
+# print(tcn)
